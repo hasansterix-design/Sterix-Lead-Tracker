@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Sterix Global — Lead Tracker</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0B3C5D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sterix Leads">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+<style>
+  :root {
+    --navy: #0B3C5D;
+    --navy-dark: #0a3450;
+    --teal: #1B998B;
+    --sky: #4FC3F7;
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-400: #94a3b8;
+    --slate-500: #64748b;
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-800: #1e293b;
+    --danger: #dc2626;
+    --warning: #d97706;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--slate-50);
+    color: var(--slate-800);
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 16px; }
+  @media (min-width: 640px) { .wrap { padding: 28px; } }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .topbar h1 { font-size: 19px; font-weight: 600; margin: 0; color: var(--slate-800); }
+  .topbar p { font-size: 13px; color: var(--slate-500); margin: 2px 0 0; }
+  .me-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: 999px;
+    padding: 6px 14px 6px 6px;
+    font-size: 13px;
+    color: var(--slate-700);
+  }
+  .me-avatar {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--teal); color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600;
+  }
+  .me-badge button {
+    background: none; border: none; color: var(--slate-400);
+    font-size: 12px; cursor: pointer; padding: 0; margin-left: 4px;
+  }
+  .me-badge button:hover { color: var(--navy); }
+
+  .sync-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; color: var(--slate-500);
+    margin-bottom: 14px;
+  }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); }
+  .sync-dot.offline { background: var(--slate-400); }
+
+  .controls {
+    display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
+  }
+  input, select, textarea {
+    font-family: inherit; font-size: 14px;
+    border: 1px solid var(--slate-200); border-radius: 10px;
+    padding: 9px 12px; outline: none; background: white;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--teal); box-shadow: 0 0 0 3px rgba(27,153,139,0.12);
+  }
+  #search { flex: 1; min-width: 180px; }
+  .controls select { width: auto; min-width: 130px; }
+
+  button {
+    font-family: inherit; cursor: pointer; border: none;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 16px; border-radius: 10px; font-size: 14px; font-weight: 500;
+  }
+  .btn-primary { background: var(--navy); color: white; }
+  .btn-primary:hover { background: var(--navy-dark); }
+  .btn-outline { background: white; color: var(--slate-600); border: 1px solid var(--slate-200); }
+  .btn-outline:hover { background: var(--slate-100); }
+
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px; margin-bottom: 18px;
+  }
+  .summary-card {
+    background: white; border: 1px solid var(--slate-200);
+    border-radius: 12px; padding: 14px;
+  }
+  .summary-card .label { font-size: 11.5px; color: var(--slate-500); margin: 0 0 4px; }
+  .summary-card .value { font-size: 21px; font-weight: 600; color: var(--slate-800); margin: 0; }
+
+  .due-banner {
+    background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412;
+    border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 16px;
+    display: none;
+  }
+
+  .lead-card {
+    background: white; border: 1px solid var(--slate-200); border-radius: 14px;
+    padding: 14px 16px; margin-bottom: 10px;
+    display: flex; gap: 14px; align-items: flex-start;
+    border-left: 4px solid var(--slate-300);
+  }
+  .lead-card.stage-New { border-left-color: var(--slate-400); }
+  .lead-card.stage-Contacted { border-left-color: var(--sky); }
+  .lead-card.stage-Quoted { border-left-color: #d97706; }
+  .lead-card.stage-Negotiating { border-left-color: #7c3aed; }
+  .lead-card.stage-Won { border-left-color: var(--teal); }
+  .lead-card.stage-Lost { border-left-color: #ef4444; }
+
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--slate-100); color: var(--slate-600);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600; flex-shrink: 0;
+  }
+  .lead-main { flex: 1; min-width: 0; }
+  .lead-top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+  .lead-name { font-weight: 600; font-size: 15px; margin: 0; }
+  .stage-pill {
+    font-size: 11px; padding: 3px 10px; border-radius: 999px; font-weight: 500; white-space: nowrap;
+  }
+  .lead-sub { font-size: 13px; color: var(--slate-500); margin: 2px 0 6px; }
+  .lead-meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--slate-500); }
+  .lead-meta span { display: inline-flex; align-items: center; gap: 4px; }
+  .lead-notes { font-size: 12.5px; color: var(--slate-400); margin: 8px 0 0; line-height: 1.5; }
+  .lead-owner {
+    font-size: 11.5px; color: var(--slate-400); margin-top: 6px;
+  }
+  .lead-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+  .icon-btn {
+    background: none; border: 1px solid var(--slate-200); border-radius: 8px;
+    width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+    color: var(--slate-500);
+  }
+  .icon-btn:hover { background: var(--slate-100); }
+
+  .empty-state {
+    text-align: center; padding: 50px 16px; color: var(--slate-500);
+  }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.45);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px; z-index: 50;
+  }
+  .modal-card {
+    background: white; border-radius: 16px; padding: 22px;
+    width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto;
+  }
+  .modal-card h2 { font-size: 17px; margin: 0 0 14px; color: var(--slate-800); }
+  .field-row { display: flex; gap: 10px; }
+  .field-row > * { flex: 1; }
+  .modal-card input, .modal-card select, .modal-card textarea { width: 100%; margin-bottom: 10px; }
+  .modal-card label { font-size: 11.5px; color: var(--slate-500); display: block; margin-bottom: 3px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+
+  .name-picker {
+    min-height: 80vh; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; text-align: center; padding: 24px;
+  }
+  .name-picker .icon { width: 64px; height: 64px; margin-bottom: 18px; }
+  .name-picker h1 { font-size: 21px; color: var(--navy); margin: 0 0 6px; }
+  .name-picker p { font-size: 14px; color: var(--slate-500); margin: 0 0 28px; max-width: 320px; }
+  .name-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+    width: 100%; max-width: 360px; margin-bottom: 18px;
+  }
+  .name-btn {
+    background: white; border: 1.5px solid var(--slate-200); border-radius: 12px;
+    padding: 14px 10px; font-size: 14px; font-weight: 500; color: var(--slate-700);
+  }
+  .name-btn:hover { border-color: var(--teal); background: #f0faf8; }
+  .name-other {
+    display: flex; gap: 8px; width: 100%; max-width: 360px;
+  }
+  .name-other input { flex: 1; }
+
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--slate-800); color: white; padding: 10px 18px;
+    border-radius: 10px; font-size: 13px; opacity: 0; transition: opacity 0.2s;
+    pointer-events: none; z-index: 100;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div id="namePicker" class="name-picker" style="display:none;">
+  <div style="width:64px;height:64px;border-radius:16px;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;margin-bottom:18px;">S</div>
+  <h1>Who's using the app?</h1>
+  <p>Pick your name so your team knows whose lead is whose. No password needed.</p>
+  <div class="name-grid" id="nameGrid"></div>
+  <div class="name-other">
+    <input type="text" id="otherName" placeholder="Not on the list? Type your name">
+    <button class="btn btn-primary" id="otherNameBtn">Go</button>
+  </div>
+</div>
+
+<div id="mainApp" class="wrap" style="display:none;">
+  <div class="topbar">
+    <div>
+      <h1>Lead Tracker</h1>
+      <p>Sterix Global · shared across the team</p>
+    </div>
+    <div class="me-badge">
+      <div class="me-avatar" id="meAvatar"></div>
+      <span id="meName"></span>
+      <button id="switchUserBtn">Switch</button>
+    </div>
+  </div>
+
+  <div class="sync-pill"><span class="sync-dot" id="syncDot"></span><span id="syncText">Live — synced with your team</span></div>
+
+  <div class="controls">
+    <input id="search" type="text" placeholder="Search name, company, or city...">
+    <select id="filterStage">
+      <option value="">All stages</option>
+      <option value="New">New</option>
+      <option value="Contacted">Contacted</option>
+      <option value="Quoted">Quoted</option>
+      <option value="Negotiating">Negotiating</option>
+      <option value="Won">Won</option>
+      <option value="Lost">Lost</option>
+    </select>
+    <select id="filterType">
+      <option value="">All types</option>
+      <option value="Distributor">Distributor</option>
+      <option value="Clinic/Hospital">Clinic/Hospital</option>
+    </select>
+    <button class="btn btn-primary" id="addBtn">+ Add lead</button>
+  </div>
+
+  <div class="summary-grid" id="summaryGrid"></div>
+  <div class="due-banner" id="dueBanner"></div>
+
+  <div id="leadList"></div>
+  <div class="empty-state" id="emptyState" style="display:none;">
+    <p>No leads yet. Click "Add lead" to create the first one.</p>
+  </div>
+</div>
+
+<div id="modalRoot"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ====== CONFIGURE THESE TWO LINES ======
+// Get them from your Supabase project: Settings > API Keys (or the Connect dialog)
+const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
+const SUPABASE_KEY = "YOUR_SUPABASE_PUBLISHABLE_KEY";
+// ========================================
+
+let db = null;
+function getDb() {
+  if (db) return db;
+  if (typeof supabase === "undefined" || !supabase.createClient) {
+    showToast("Couldn't connect — check your internet connection");
+    return null;
+  }
+  db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  return db;
+}
+
+const TEAM_NAMES = ["Hasan", "Shikhar", "Aditya", "A.K. Singh", "Murli"];
+const STAGES = ["New", "Contacted", "Quoted", "Negotiating", "Won", "Lost"];
+const STAGE_COLORS = {
+  New: ["#f1f5f9", "#475569"],
+  Contacted: ["#e0f2fe", "#0369a1"],
+  Quoted: ["#fef3c7", "#92400e"],
+  Negotiating: ["#ede9fe", "#6d28d9"],
+  Won: ["#dcfce7", "#15803d"],
+  Lost: ["#fee2e2", "#b91c1c"]
+};
+
+let myName = localStorage.getItem("sterix_lead_user") || "";
+let leads = [];
+let editingId = null;
+let realtimeChannel = null;
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+function initials(name) {
+  return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+}
+
+function escapeHtml(s) {
+  if (!s) return "";
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function fmtMoney(n) {
+  if (!n) return "—";
+  return "₹" + Number(n).toLocaleString("en-IN");
+}
+
+function fmtDate(iso) {
+  if (!iso) return null;
+  const d = new Date(iso + "T00:00:00");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((d - today) / 86400000);
+  const label = d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  if (diffDays < 0) return { text: `Overdue · ${label}`, tone: "overdue" };
+  if (diffDays === 0) return { text: `Today · ${label}`, tone: "today" };
+  if (diffDays === 1) return { text: `Tomorrow · ${label}`, tone: "soon" };
+  if (diffDays <= 3) return { text: `In ${diffDays} days · ${label}`, tone: "soon" };
+  return { text: label, tone: "later" };
+}
+
+// ---------- Name picker ----------
+function initNamePicker() {
+  if (myName) {
+    showMainApp();
+    return;
+  }
+  document.getElementById("namePicker").style.display = "flex";
+  document.getElementById("nameGrid").innerHTML = TEAM_NAMES.map(n =>
+    `<button class="name-btn" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`
+  ).join("");
+  document.querySelectorAll(".name-btn").forEach(b => {
+    b.onclick = () => chooseName(b.dataset.name);
+  });
+  document.getElementById("otherNameBtn").onclick = () => {
+    const v = document.getElementById("otherName").value.trim();
+    if (v) chooseName(v);
+  };
+  document.getElementById("otherName").addEventListener("keydown", e => {
+    if (e.key === "Enter") document.getElementById("otherNameBtn").click();
+  });
+}
+
+function chooseName(name) {
+  myName = name;
+  localStorage.setItem("sterix_lead_user", name);
+  document.getElementById("namePicker").style.display = "none";
+  showMainApp();
+}
+
+function showMainApp() {
+  document.getElementById("mainApp").style.display = "block";
+  document.getElementById("meName").textContent = myName;
+  document.getElementById("meAvatar").textContent = initials(myName);
+  document.getElementById("switchUserBtn").onclick = switchUser;
+  connectAndLoad();
+}
+
+function switchUser() {
+  localStorage.removeItem("sterix_lead_user");
+  myName = "";
+  document.getElementById("mainApp").style.display = "none";
+  if (realtimeChannel && db) db.removeChannel(realtimeChannel);
+  initNamePicker();
+}
+
+// ---------- Data layer ----------
+async function connectAndLoad() {
+  await loadLeads();
+  subscribeRealtime();
+}
+
+async function loadLeads() {
+  const conn = getDb();
+  if (!conn) { setSyncStatus(false); render(); return; }
+  const { data, error } = await conn.from("leads").select("*").order("next_followup", { ascending: true, nullsFirst: false });
+  if (error) {
+    setSyncStatus(false);
+    showToast("Couldn't load leads — check your connection");
+    render();
+    return;
+  }
+  leads = data || [];
+  setSyncStatus(true);
+  render();
+}
+
+function subscribeRealtime() {
+  const conn = getDb();
+  if (!conn) return;
+  realtimeChannel = conn
+    .channel("leads-changes")
+    .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, (payload) => {
+      handleRealtimeChange(payload);
+    })
+    .subscribe((status) => {
+      setSyncStatus(status === "SUBSCRIBED");
+    });
+}
+
+function handleRealtimeChange(payload) {
+  if (payload.eventType === "INSERT") {
+    if (!leads.find(l => l.id === payload.new.id)) leads.push(payload.new);
+    if (payload.new.created_by !== myName) showToast(`${payload.new.created_by} added a lead: ${payload.new.name}`);
+  } else if (payload.eventType === "UPDATE") {
+    const idx = leads.findIndex(l => l.id === payload.new.id);
+    if (idx !== -1) leads[idx] = payload.new;
+    if (payload.new.updated_by !== myName) showToast(`${payload.new.updated_by} updated ${payload.new.name}`);
+  } else if (payload.eventType === "DELETE") {
+    leads = leads.filter(l => l.id !== payload.old.id);
+  }
+  render();
+}
+
+function setSyncStatus(online) {
+  const dot = document.getElementById("syncDot");
+  const text = document.getElementById("syncText");
+  if (online) {
+    dot.classList.remove("offline");
+    text.textContent = "Live — synced with your team";
+  } else {
+    dot.classList.add("offline");
+    text.textContent = "Offline — changes will retry";
+  }
+}
+
+// ---------- Render ----------
+function render() {
+  const search = document.getElementById("search").value.trim().toLowerCase();
+  const stageFilter = document.getElementById("filterStage").value;
+  const typeFilter = document.getElementById("filterType").value;
+
+  let filtered = leads.filter(l => {
+    const matchesSearch = !search || ((l.name || "") + (l.company || "") + (l.city || "")).toLowerCase().includes(search);
+    const matchesStage = !stageFilter || l.stage === stageFilter;
+    const matchesType = !typeFilter || l.type === typeFilter;
+    return matchesSearch && matchesStage && matchesType;
+  });
+
+  renderSummary();
+  renderDueBanner();
+
+  const listEl = document.getElementById("leadList");
+  const emptyEl = document.getElementById("emptyState");
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = "";
+    emptyEl.style.display = "block";
+    return;
+  }
+  emptyEl.style.display = "none";
+
+  listEl.innerHTML = filtered.map(l => {
+    const due = fmtDate(l.next_followup);
+    const dueColor = due ? (due.tone === "overdue" ? "var(--danger)" : due.tone === "today" ? "var(--warning)" : "var(--slate-500)") : "var(--slate-400)";
+    const [pillBg, pillFg] = STAGE_COLORS[l.stage] || STAGE_COLORS.New;
+
+    return `
+      <div class="lead-card stage-${l.stage}" data-id="${l.id}">
+        <div class="avatar">${initials(l.name || "?")}</div>
+        <div class="lead-main">
+          <div class="lead-top">
+            <p class="lead-name">${escapeHtml(l.name)}</p>
+            <span class="stage-pill" style="background:${pillBg};color:${pillFg};">${escapeHtml(l.stage)}</span>
+          </div>
+          <p class="lead-sub">${escapeHtml(l.company || "—")} · ${escapeHtml(l.type || "—")} · ${escapeHtml(l.city || "—")}</p>
+          <div class="lead-meta">
+            <span>${escapeHtml(l.phone || "—")}</span>
+            <span>${fmtMoney(l.value)}</span>
+            ${due ? `<span style="color:${dueColor};">${due.text}</span>` : `<span>No follow-up set</span>`}
+          </div>
+          ${l.notes ? `<p class="lead-notes">${escapeHtml(l.notes)}</p>` : ""}
+          <p class="lead-owner">Added by ${escapeHtml(l.created_by || "—")}${l.updated_by && l.updated_by !== l.created_by ? ` · last edited by ${escapeHtml(l.updated_by)}` : ""}</p>
+        </div>
+        <div class="lead-actions">
+          <button class="icon-btn editBtn" data-id="${l.id}" aria-label="Edit">✎</button>
+          <button class="icon-btn delBtn" data-id="${l.id}" aria-label="Delete">🗑</button>
+        </div>
+      </div>`;
+  }).join("");
+
+  document.querySelectorAll(".editBtn").forEach(b => b.onclick = () => openModal(b.dataset.id));
+  document.querySelectorAll(".delBtn").forEach(b => b.onclick = () => deleteLead(b.dataset.id));
+}
+
+function renderSummary() {
+  const total = leads.length;
+  const open = leads.filter(l => l.stage !== "Won" && l.stage !== "Lost").length;
+  const won = leads.filter(l => l.stage === "Won");
+  const wonValue = won.reduce((s, l) => s + (Number(l.value) || 0), 0);
+  const pipelineValue = leads.filter(l => l.stage !== "Lost").reduce((s, l) => s + (Number(l.value) || 0), 0);
+
+  const cards = [
+    { label: "Total leads", value: total },
+    { label: "Open", value: open },
+    { label: "Won value", value: fmtMoney(wonValue) },
+    { label: "Pipeline value", value: fmtMoney(pipelineValue) }
+  ];
+
+  document.getElementById("summaryGrid").innerHTML = cards.map(c => `
+    <div class="summary-card">
+      <p class="label">${c.label}</p>
+      <p class="value">${c.value}</p>
+    </div>`).join("");
+}
+
+function renderDueBanner() {
+  const today = new Date().toISOString().slice(0, 10);
+  const due = leads.filter(l => l.next_followup && l.next_followup <= today && l.stage !== "Won" && l.stage !== "Lost");
+  const banner = document.getElementById("dueBanner");
+  if (due.length === 0) {
+    banner.style.display = "none";
+    return;
+  }
+  banner.style.display = "block";
+  banner.textContent = `${due.length} follow-up${due.length > 1 ? "s" : ""} due now: ${due.map(l => l.name).join(", ")}`;
+}
+
+// ---------- Modal (add/edit) ----------
+function openModal(id) {
+  editingId = id || null;
+  const lead = id ? leads.find(l => l.id === id) : null;
+
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay">
+      <div class="modal-card">
+        <h2>${lead ? "Edit lead" : "Add lead"}</h2>
+        <input id="f_name" placeholder="Contact name" value="${lead ? escapeHtml(lead.name) : ''}">
+        <input id="f_company" placeholder="Company / hospital name" value="${lead ? escapeHtml(lead.company || '') : ''}">
+        <div class="field-row">
+          <select id="f_type">
+            <option value="Distributor" ${lead && lead.type === "Distributor" ? "selected" : ""}>Distributor</option>
+            <option value="Clinic/Hospital" ${lead && lead.type === "Clinic/Hospital" ? "selected" : ""}>Clinic/Hospital</option>
+          </select>
+          <input id="f_city" placeholder="City" value="${lead ? escapeHtml(lead.city || '') : ''}">
+        </div>
+        <input id="f_phone" placeholder="Phone number" value="${lead ? escapeHtml(lead.phone || '') : ''}">
+        <div class="field-row">
+          <select id="f_stage">
+            ${STAGES.map(s => `<option value="${s}" ${lead && lead.stage === s ? "selected" : ""}>${s}</option>`).join("")}
+          </select>
+          <input id="f_value" type="number" placeholder="Deal value (₹)" value="${lead ? lead.value || '' : ''}">
+        </div>
+        <label>Next follow-up</label>
+        <input id="f_followup" type="date" value="${lead ? (lead.next_followup || '') : ''}">
+        <textarea id="f_notes" placeholder="Notes" rows="3">${lead ? escapeHtml(lead.notes || '') : ''}</textarea>
+        <div class="modal-actions">
+          <button class="btn btn-outline" id="cancelBtn">Cancel</button>
+          <button class="btn btn-primary" id="saveBtn">Save</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById("cancelBtn").onclick = closeModal;
+  document.getElementById("saveBtn").onclick = saveLead;
+}
+
+function closeModal() {
+  document.getElementById("modalRoot").innerHTML = "";
+  editingId = null;
+}
+
+async function saveLead() {
+  const name = document.getElementById("f_name").value.trim();
+  if (!name) { document.getElementById("f_name").focus(); return; }
+
+  const conn = getDb();
+  if (!conn) return;
+
+  const data = {
+    name,
+    company: document.getElementById("f_company").value.trim(),
+    type: document.getElementById("f_type").value,
+    city: document.getElementById("f_city").value.trim(),
+    phone: document.getElementById("f_phone").value.trim(),
+    stage: document.getElementById("f_stage").value,
+    value: Number(document.getElementById("f_value").value) || 0,
+    next_followup: document.getElementById("f_followup").value || null,
+    notes: document.getElementById("f_notes").value.trim(),
+    updated_by: myName
+  };
+
+  const saveBtn = document.getElementById("saveBtn");
+  saveBtn.textContent = "Saving...";
+  saveBtn.disabled = true;
+
+  if (editingId) {
+    const { error } = await conn.from("leads").update(data).eq("id", editingId);
+    if (error) { showToast("Couldn't save — try again"); saveBtn.disabled = false; saveBtn.textContent = "Save"; return; }
+  } else {
+    data.created_by = myName;
+    const { error } = await conn.from("leads").insert(data);
+    if (error) { showToast("Couldn't save — try again"); saveBtn.disabled = false; saveBtn.textContent = "Save"; return; }
+  }
+
+  closeModal();
+  await loadLeads();
+}
+
+async function deleteLead(id) {
+  const lead = leads.find(l => l.id === id);
+  if (!confirm(`Delete the lead for ${lead ? lead.name : "this contact"}? This can't be undone.`)) return;
+  const conn = getDb();
+  if (!conn) return;
+  const { error } = await conn.from("leads").delete().eq("id", id);
+  if (error) { showToast("Couldn't delete — try again"); return; }
+  await loadLeads();
+}
+
+document.getElementById("search").addEventListener("input", render);
+document.getElementById("filterStage").addEventListener("change", render);
+document.getElementById("filterType").addEventListener("change", render);
+document.getElementById("addBtn").addEventListener("click", () => openModal(null));
+
+initNamePicker();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+  });
+}
+</script>
+
+</body>
+</html>
