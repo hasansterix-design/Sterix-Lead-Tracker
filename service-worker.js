@@ -2,8 +2,12 @@
 // Caches only the app shell (HTML/CSS/JS/icons) so the app opens instantly.
 // Does NOT cache Supabase API calls — leads must always come from the live
 // database so everyone sees the same shared, up-to-date data.
+//
+// IMPORTANT: bump CACHE_NAME (e.g. v1 -> v2) every time index.html changes
+// and is re-uploaded. Without this, installed apps can keep showing an old
+// cached version indefinitely, even after you've updated the file online.
 
-const CACHE_NAME = "sterix-leads-v1";
+const CACHE_NAME = "sterix-leads-v2";
 const ASSETS_TO_CACHE = [
   "./index.html",
   "./manifest.json",
@@ -39,6 +43,28 @@ self.addEventListener("fetch", (event) => {
 
   if (event.request.method !== "GET") return;
 
+  const isHTML = event.request.mode === "navigate" || url.endsWith(".html") || url.endsWith("/");
+
+  if (isHTML) {
+    // Network-first for the app shell itself: always try to get the latest
+    // version online, and only fall back to the cached copy if offline.
+    // This is what makes updates show up immediately instead of being
+    // stuck behind a stale cache.
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for static assets (icons, manifest) since those rarely change.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const networkFetch = fetch(event.request)
