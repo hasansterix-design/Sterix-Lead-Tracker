@@ -14,6 +14,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
 <style>
   :root {
@@ -74,6 +75,7 @@
     font-size: 12px; cursor: pointer; padding: 0; margin-left: 4px;
   }
   .me-badge button:hover { color: var(--navy); }
+  #passwordBtn { border-left: 1px solid var(--slate-200); padding-left: 8px; }
 
   .sync-pill {
     display: inline-flex; align-items: center; gap: 5px;
@@ -134,8 +136,8 @@
   }
   .lead-card.stage-New { border-left-color: var(--slate-400); }
   .lead-card.stage-Contacted { border-left-color: var(--sky); }
-  .lead-card.stage-Quoted { border-left-color: #d97706; }
-  .lead-card.stage-Negotiating { border-left-color: #7c3aed; }
+  .lead-card.stage-Quoted { border-left-color: var(--navy); }
+  .lead-card.stage-Negotiating { border-left-color: var(--teal); }
   .lead-card.stage-Won { border-left-color: var(--teal); }
   .lead-card.stage-Lost { border-left-color: #ef4444; }
 
@@ -207,6 +209,15 @@
   }
   .name-other input { flex: 1; }
 
+  .login-form {
+    width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .login-form input { width: 100%; padding: 11px 14px; }
+  .login-error {
+    background: #fef2f2; border: 1px solid #fecaca; color: var(--danger);
+    border-radius: 8px; padding: 8px 12px; font-size: 12.5px; display: none;
+  }
+
   .toast {
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
     background: var(--slate-800); color: white; padding: 10px 18px;
@@ -220,12 +231,13 @@
 
 <div id="namePicker" class="name-picker" style="display:none;">
   <div style="width:64px;height:64px;border-radius:16px;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;margin-bottom:18px;">S</div>
-  <h1>Who's using the app?</h1>
-  <p>Pick your name so your team knows whose lead is whose. No password needed.</p>
-  <div class="name-grid" id="nameGrid"></div>
-  <div class="name-other">
-    <input type="text" id="otherName" placeholder="Not on the list? Type your name">
-    <button class="btn btn-primary" id="otherNameBtn">Go</button>
+  <h1>Sign in</h1>
+  <p>Use the username and password your team set up for you.</p>
+  <div class="login-form">
+    <div class="login-error" id="loginError"></div>
+    <input type="text" id="loginUsername" placeholder="Username" autocomplete="username">
+    <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
+    <button class="btn btn-primary" id="loginBtn" style="justify-content:center;">Sign in</button>
   </div>
 </div>
 
@@ -238,6 +250,7 @@
     <div class="me-badge">
       <div class="me-avatar" id="meAvatar"></div>
       <span id="meName"></span>
+      <button id="passwordBtn">Password</button>
       <button id="switchUserBtn">Switch</button>
     </div>
   </div>
@@ -260,6 +273,7 @@
       <option value="Distributor">Distributor</option>
       <option value="Clinic/Hospital">Clinic/Hospital</option>
     </select>
+    <button class="btn btn-outline" id="exportBtn">⬇ Export to Excel</button>
     <button class="btn btn-primary" id="addBtn">+ Add lead</button>
   </div>
 
@@ -293,14 +307,13 @@ function getDb() {
   return db;
 }
 
-const TEAM_NAMES = ["Hasan", "Shikhar", "Aditya", "A.K. Singh", "Murli"];
 const STAGES = ["New", "Contacted", "Quoted", "Negotiating", "Won", "Lost"];
 const STAGE_COLORS = {
-  New: ["#f1f5f9", "#475569"],
-  Contacted: ["#e0f2fe", "#0369a1"],
-  Quoted: ["#fef3c7", "#92400e"],
-  Negotiating: ["#ede9fe", "#6d28d9"],
-  Won: ["#dcfce7", "#15803d"],
+  New: ["#ebeff2", "#0B3C5D"],
+  Contacted: ["#e4f6fd", "#2b6b87"],
+  Quoted: ["#dae1e6", "#0B3C5D"],
+  Negotiating: ["#d1eae7", "#147268"],
+  Won: ["#1B998B", "#ffffff"],
   Lost: ["#fee2e2", "#b91c1c"]
 };
 
@@ -346,26 +359,69 @@ function fmtDate(iso) {
   return { text: label, tone: "later" };
 }
 
-// ---------- Name picker ----------
+// ---------- Login ----------
 function initNamePicker() {
   if (myName) {
     showMainApp();
     return;
   }
   document.getElementById("namePicker").style.display = "flex";
-  document.getElementById("nameGrid").innerHTML = TEAM_NAMES.map(n =>
-    `<button class="name-btn" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`
-  ).join("");
-  document.querySelectorAll(".name-btn").forEach(b => {
-    b.onclick = () => chooseName(b.dataset.name);
+  const btn = document.getElementById("loginBtn");
+  const userInput = document.getElementById("loginUsername");
+  const passInput = document.getElementById("loginPassword");
+
+  btn.onclick = attemptLogin;
+  [userInput, passInput].forEach(el => {
+    el.addEventListener("keydown", e => { if (e.key === "Enter") attemptLogin(); });
   });
-  document.getElementById("otherNameBtn").onclick = () => {
-    const v = document.getElementById("otherName").value.trim();
-    if (v) chooseName(v);
-  };
-  document.getElementById("otherName").addEventListener("keydown", e => {
-    if (e.key === "Enter") document.getElementById("otherNameBtn").click();
-  });
+}
+
+function showLoginError(msg) {
+  const errEl = document.getElementById("loginError");
+  errEl.textContent = msg;
+  errEl.style.display = "block";
+}
+
+async function attemptLogin() {
+  const username = document.getElementById("loginUsername").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  const errEl = document.getElementById("loginError");
+  errEl.style.display = "none";
+
+  if (!username || !password) {
+    showLoginError("Enter both your username and password.");
+    return;
+  }
+
+  const conn = getDb();
+  if (!conn) {
+    showLoginError("Can't connect right now — check your internet connection.");
+    return;
+  }
+
+  const btn = document.getElementById("loginBtn");
+  btn.textContent = "Signing in...";
+  btn.disabled = true;
+
+  const { data, error } = await conn
+    .from("team_members")
+    .select("username, password")
+    .ilike("username", username)
+    .limit(1);
+
+  btn.textContent = "Sign in";
+  btn.disabled = false;
+
+  if (error) {
+    showLoginError("Couldn't check your login — try again.");
+    return;
+  }
+  if (!data || data.length === 0 || data[0].password !== password) {
+    showLoginError("Incorrect username or password.");
+    return;
+  }
+
+  chooseName(data[0].username);
 }
 
 function chooseName(name) {
@@ -380,6 +436,7 @@ function showMainApp() {
   document.getElementById("meName").textContent = myName;
   document.getElementById("meAvatar").textContent = initials(myName);
   document.getElementById("switchUserBtn").onclick = switchUser;
+  document.getElementById("passwordBtn").onclick = openPasswordModal;
   connectAndLoad();
 }
 
@@ -387,6 +444,8 @@ function switchUser() {
   localStorage.removeItem("sterix_lead_user");
   myName = "";
   document.getElementById("mainApp").style.display = "none";
+  document.getElementById("loginUsername").value = "";
+  document.getElementById("loginPassword").value = "";
   if (realtimeChannel && db) db.removeChannel(realtimeChannel);
   initNamePicker();
 }
@@ -453,16 +512,7 @@ function setSyncStatus(online) {
 
 // ---------- Render ----------
 function render() {
-  const search = document.getElementById("search").value.trim().toLowerCase();
-  const stageFilter = document.getElementById("filterStage").value;
-  const typeFilter = document.getElementById("filterType").value;
-
-  let filtered = leads.filter(l => {
-    const matchesSearch = !search || ((l.name || "") + (l.company || "") + (l.city || "")).toLowerCase().includes(search);
-    const matchesStage = !stageFilter || l.stage === stageFilter;
-    const matchesType = !typeFilter || l.type === typeFilter;
-    return matchesSearch && matchesStage && matchesType;
-  });
+  let filtered = getFilteredLeads();
 
   renderSummary();
   renderDueBanner();
@@ -543,6 +593,64 @@ function renderDueBanner() {
   banner.textContent = `${due.length} follow-up${due.length > 1 ? "s" : ""} due now: ${due.map(l => l.name).join(", ")}`;
 }
 
+// ---------- Export ----------
+function getFilteredLeads() {
+  const search = document.getElementById("search").value.trim().toLowerCase();
+  const stageFilter = document.getElementById("filterStage").value;
+  const typeFilter = document.getElementById("filterType").value;
+
+  return leads.filter(l => {
+    const matchesSearch = !search || ((l.name || "") + (l.company || "") + (l.city || "")).toLowerCase().includes(search);
+    const matchesStage = !stageFilter || l.stage === stageFilter;
+    const matchesType = !typeFilter || l.type === typeFilter;
+    return matchesSearch && matchesStage && matchesType;
+  });
+}
+
+function exportToExcel() {
+  if (typeof XLSX === "undefined") {
+    showToast("Export isn't available right now — check your internet connection and reload.");
+    return;
+  }
+
+  const rows = getFilteredLeads();
+  if (rows.length === 0) {
+    showToast("No leads to export with the current search/filter.");
+    return;
+  }
+
+  const exportRows = rows.map(l => ({
+    "Name": l.name || "",
+    "Company": l.company || "",
+    "Type": l.type || "",
+    "City": l.city || "",
+    "Phone": l.phone || "",
+    "Stage": l.stage || "",
+    "Deal Value (₹)": Number(l.value) || 0,
+    "Next Follow-up": l.next_followup || "",
+    "Notes": l.notes || "",
+    "Added By": l.created_by || "",
+    "Last Edited By": l.updated_by || "",
+    "Created At": l.created_at ? new Date(l.created_at).toLocaleString("en-IN") : "",
+    "Last Updated": l.updated_at ? new Date(l.updated_at).toLocaleString("en-IN") : ""
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(exportRows);
+
+  worksheet["!cols"] = [
+    { wch: 20 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 16 },
+    { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 30 }, { wch: 12 },
+    { wch: 14 }, { wch: 18 }, { wch: 18 }
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
+
+  const dateStamp = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(workbook, `Sterix_Leads_${dateStamp}.xlsx`);
+  showToast(`Exported ${rows.length} lead${rows.length > 1 ? "s" : ""}.`);
+}
+
 // ---------- Modal (add/edit) ----------
 function openModal(id) {
   editingId = id || null;
@@ -587,12 +695,96 @@ function closeModal() {
   editingId = null;
 }
 
+function openPasswordModal() {
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-overlay">
+      <div class="modal-card">
+        <h2>Change your password</h2>
+        <label>Current password</label>
+        <input type="password" id="pw_current" autocomplete="current-password">
+        <label>New password</label>
+        <input type="password" id="pw_new" autocomplete="new-password">
+        <label>Confirm new password</label>
+        <input type="password" id="pw_confirm" autocomplete="new-password">
+        <div class="modal-actions">
+          <button class="btn btn-outline" id="pwCancelBtn">Cancel</button>
+          <button class="btn btn-primary" id="pwSaveBtn">Save password</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById("pwCancelBtn").onclick = closeModal;
+  document.getElementById("pwSaveBtn").onclick = savePassword;
+  [document.getElementById("pw_current"), document.getElementById("pw_new"), document.getElementById("pw_confirm")].forEach(el => {
+    el.addEventListener("keydown", e => { if (e.key === "Enter") savePassword(); });
+  });
+}
+
+async function savePassword() {
+  const current = document.getElementById("pw_current").value;
+  const next = document.getElementById("pw_new").value;
+  const confirm = document.getElementById("pw_confirm").value;
+
+  if (!current || !next || !confirm) {
+    showModalError("Fill in all three fields.");
+    return;
+  }
+  if (next.length < 4) {
+    showModalError("New password should be at least 4 characters.");
+    return;
+  }
+  if (next !== confirm) {
+    showModalError("New password and confirmation don't match.");
+    return;
+  }
+
+  const conn = getDb();
+  if (!conn) {
+    showModalError("Not connected to the database. Check your internet connection.");
+    return;
+  }
+
+  const saveBtn = document.getElementById("pwSaveBtn");
+  saveBtn.textContent = "Checking...";
+  saveBtn.disabled = true;
+
+  const { data, error } = await conn
+    .from("team_members")
+    .select("username, password")
+    .ilike("username", myName)
+    .limit(1);
+
+  if (error || !data || data.length === 0 || data[0].password !== current) {
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save password";
+    showModalError("Your current password is incorrect.");
+    return;
+  }
+
+  const { error: updateError } = await conn
+    .from("team_members")
+    .update({ password: next })
+    .ilike("username", myName);
+
+  if (updateError) {
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save password";
+    showModalError("Couldn't update your password — try again.");
+    return;
+  }
+
+  closeModal();
+  showToast("Password updated.");
+}
+
 async function saveLead() {
   const name = document.getElementById("f_name").value.trim();
   if (!name) { document.getElementById("f_name").focus(); return; }
 
   const conn = getDb();
-  if (!conn) return;
+  if (!conn) {
+    showModalError("Not connected to the database. Check your internet connection and reload the page.");
+    return;
+  }
 
   const data = {
     name,
@@ -613,15 +805,35 @@ async function saveLead() {
 
   if (editingId) {
     const { error } = await conn.from("leads").update(data).eq("id", editingId);
-    if (error) { showToast("Couldn't save — try again"); saveBtn.disabled = false; saveBtn.textContent = "Save"; return; }
+    if (error) {
+      saveBtn.disabled = false; saveBtn.textContent = "Save";
+      showModalError(error.message || "Couldn't save this lead.");
+      return;
+    }
   } else {
     data.created_by = myName;
     const { error } = await conn.from("leads").insert(data);
-    if (error) { showToast("Couldn't save — try again"); saveBtn.disabled = false; saveBtn.textContent = "Save"; return; }
+    if (error) {
+      saveBtn.disabled = false; saveBtn.textContent = "Save";
+      showModalError(error.message || "Couldn't save this lead.");
+      return;
+    }
   }
 
   closeModal();
   await loadLeads();
+}
+
+function showModalError(message) {
+  let errEl = document.getElementById("modalError");
+  if (!errEl) {
+    errEl = document.createElement("div");
+    errEl.id = "modalError";
+    errEl.style.cssText = "background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:9px 12px;font-size:12.5px;margin-bottom:10px;line-height:1.4;";
+    const modalCard = document.querySelector(".modal-card");
+    if (modalCard) modalCard.insertBefore(errEl, modalCard.children[1]);
+  }
+  errEl.textContent = message;
 }
 
 async function deleteLead(id) {
@@ -638,6 +850,7 @@ document.getElementById("search").addEventListener("input", render);
 document.getElementById("filterStage").addEventListener("change", render);
 document.getElementById("filterType").addEventListener("change", render);
 document.getElementById("addBtn").addEventListener("click", () => openModal(null));
+document.getElementById("exportBtn").addEventListener("click", exportToExcel);
 
 initNamePicker();
 
