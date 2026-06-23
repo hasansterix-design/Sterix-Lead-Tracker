@@ -7,7 +7,7 @@
 // and is re-uploaded. Without this, installed apps can keep showing an old
 // cached version indefinitely, even after you've updated the file online.
 
-const CACHE_NAME = "sterix-leads-v2";
+const CACHE_NAME = "sterix-leads-v3";
 const ASSETS_TO_CACHE = [
   "./index.html",
   "./manifest.json",
