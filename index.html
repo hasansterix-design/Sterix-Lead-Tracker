@@ -55,27 +55,32 @@
 
   .app-header {
     display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 18px; flex-wrap: wrap; gap: 10px;
+    margin: -16px -16px 18px; flex-wrap: wrap; gap: 10px;
+    background: linear-gradient(120deg, var(--navy) 0%, var(--navy-dark) 100%);
+    padding: 16px; border-radius: 0 0 18px 18px;
+  }
+  @media (min-width: 640px) {
+    .app-header { margin: -28px -28px 22px; padding: 20px 28px; border-radius: 0 0 22px 22px; }
   }
   .app-header-left { display: flex; align-items: center; gap: 12px; }
-  .app-header-logo { height: 28px; }
-  .app-header-divider { width: 1px; height: 28px; background: var(--slate-200); }
-  .app-header h1 { font-size: 17px; font-weight: 600; margin: 0; color: var(--slate-800); }
-  .app-header p { font-size: 12.5px; color: var(--slate-500); margin: 1px 0 0; }
+  .app-header-logo { height: 28px; background: white; padding: 4px 8px; border-radius: 8px; }
+  .app-header-divider { width: 1px; height: 28px; background: rgba(255,255,255,0.25); }
+  .app-header h1 { font-size: 17px; font-weight: 600; margin: 0; color: white; }
+  .app-header p { font-size: 12.5px; color: rgba(255,255,255,0.75); margin: 1px 0 0; }
 
   .profile-wrap { position: relative; }
   .profile-trigger {
     display: flex; align-items: center; gap: 8px;
-    background: white; border: 1px solid var(--slate-200);
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25);
     border-radius: 999px; padding: 6px 14px 6px 6px;
-    font-size: 13px; color: var(--slate-700); cursor: pointer;
+    font-size: 13px; color: white; cursor: pointer;
   }
-  .profile-trigger:hover { border-color: var(--teal); }
+  .profile-trigger:hover { background: rgba(255,255,255,0.2); }
   .me-avatar {
     width: 26px; height: 26px; border-radius: 50%;
-    background: var(--teal); color: white;
+    background: var(--sky); color: var(--navy-dark);
     display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 600; flex-shrink: 0;
+    font-size: 11px; font-weight: 700; flex-shrink: 0;
   }
   .profile-panel {
     position: absolute; top: calc(100% + 8px); right: 0;
@@ -101,12 +106,13 @@
   .profile-panel button.danger { color: var(--danger); }
 
   .sync-pill {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 11.5px; color: var(--slate-500);
-    margin-bottom: 14px;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11.5px; font-weight: 600; color: var(--teal);
+    margin-bottom: 14px; background: #e8f7f5; border: 1px solid #c9ece8;
+    padding: 5px 12px; border-radius: 999px;
   }
-  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); }
-  .sync-dot.offline { background: var(--slate-400); }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 3px rgba(27,153,139,0.18); }
+  .sync-dot.offline { background: var(--slate-400); box-shadow: none; }
 
   .controls {
     display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
@@ -131,19 +137,32 @@
   }
   .btn-primary { background: var(--navy); color: white; }
   .btn-primary:hover { background: var(--navy-dark); }
-  .btn-outline { background: white; color: var(--slate-600); border: 1px solid var(--slate-200); }
-  .btn-outline:hover { background: var(--slate-100); }
+  .btn-outline { background: white; color: var(--navy); border: 1px solid var(--slate-200); }
+  .btn-outline:hover { background: #eef6f5; border-color: var(--teal); }
 
   .summary-grid {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 10px; margin-bottom: 18px;
   }
   .summary-card {
-    background: white; border: 1px solid var(--slate-200);
+    background: white; border: 1px solid var(--slate-200); border-top: 3px solid var(--teal);
     border-radius: 12px; padding: 14px;
   }
   .summary-card .label { font-size: 11.5px; color: var(--slate-500); margin: 0 0 4px; }
-  .summary-card .value { font-size: 21px; font-weight: 600; color: var(--slate-800); margin: 0; }
+  .summary-card .value { font-size: 21px; font-weight: 700; color: var(--navy); margin: 0; }
+
+  .pipeline-card {
+    background: white; border: 1px solid var(--slate-200); border-radius: 14px;
+    padding: 16px; margin-bottom: 18px;
+  }
+  .pipeline-card .pipeline-title {
+    font-size: 12.5px; font-weight: 600; color: var(--slate-600); margin: 0 0 12px;
+  }
+  .pipeline-bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--slate-100); margin-bottom: 12px; }
+  .pipeline-bar span { height: 100%; }
+  .pipeline-legend { display: flex; gap: 14px; flex-wrap: wrap; }
+  .pipeline-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--slate-600); }
+  .pipeline-legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 
   .due-banner {
     background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412;
@@ -155,17 +174,36 @@
   .lead-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .lead-table th {
     text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em;
-    color: var(--slate-500); font-weight: 600; padding: 12px 14px; border-bottom: 1px solid var(--slate-200);
-    background: var(--slate-50);
+    color: white; font-weight: 600; padding: 12px 14px; border-bottom: 1px solid var(--navy-dark);
+    background: var(--navy);
   }
   .lead-table td { padding: 12px 14px; border-bottom: 1px solid var(--slate-100); vertical-align: middle; }
   .lead-table tr:last-child td { border-bottom: none; }
   .lead-table tr:hover td { background: #fafcfc; }
+  .lead-table tr.row-overdue td { background: #fef2f2; }
+  .lead-table tr.row-overdue:hover td { background: #fee8e8; }
   .lead-table .table-name-cell { display: flex; align-items: center; gap: 10px; }
   .lead-table .table-name-cell .avatar { width: 30px; height: 30px; font-size: 11px; }
   .lead-table .table-name-cell strong { font-size: 13.5px; color: var(--slate-800); }
   .lead-table td.table-actions { display: flex; gap: 6px; justify-content: flex-end; }
   .lead-table .stage-pill { font-size: 10.5px; padding: 3px 9px; }
+  .stage-select {
+    font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 999px;
+    border: 1px solid transparent; cursor: pointer; appearance: none;
+    -webkit-appearance: none; background-position: right 6px center; background-repeat: no-repeat;
+    background-size: 10px; padding-right: 22px;
+  }
+  .notes-cell { max-width: 160px; color: var(--slate-500); font-size: 12.5px; }
+  .notes-cell span {
+    display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .contact-icons { display: inline-flex; gap: 6px; margin-left: 6px; vertical-align: middle; }
+  .contact-icons a {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%; text-decoration: none; font-size: 12px;
+  }
+  .contact-icons .call-link { background: #e8f0f7; }
+  .contact-icons .wa-link { background: #e3f6e8; }
 
   @media (min-width: 860px) {
     .table-wrap { display: block; }
@@ -368,6 +406,7 @@
   </div>
 
   <div class="summary-grid" id="summaryGrid"></div>
+  <div class="pipeline-card" id="pipelineCard"></div>
   <div class="due-banner" id="dueBanner"></div>
 
   <div class="table-wrap" id="tableWrap">
@@ -381,6 +420,7 @@
           <th>Stage</th>
           <th>Value</th>
           <th>Follow-up</th>
+          <th>Notes</th>
           <th>Added by</th>
           <th></th>
         </tr>
@@ -748,10 +788,27 @@ function setSyncStatus(online) {
 }
 
 // ---------- Render ----------
+function phoneIcons(phone) {
+  if (!phone) return "";
+  const digits = phone.replace(/[^\d+]/g, "");
+  if (!digits) return "";
+  return `<span class="contact-icons">
+    <a class="call-link" href="tel:${digits}" title="Call" onclick="event.stopPropagation()">📞</a>
+    <a class="wa-link" href="https://wa.me/${digits.replace(/^\+/, "")}" target="_blank" rel="noopener" title="WhatsApp" onclick="event.stopPropagation()">💬</a>
+  </span>`;
+}
+
+function stageSelectHtml(lead) {
+  const [pillBg, pillFg] = STAGE_COLORS[lead.stage] || STAGE_COLORS.New;
+  const options = STAGES.map(s => `<option value="${s}" ${lead.stage === s ? "selected" : ""}>${s}</option>`).join("");
+  return `<select class="stage-select stageSelect" data-id="${lead.id}" style="background-color:${pillBg};color:${pillFg};">${options}</select>`;
+}
+
 function render() {
   let filtered = getFilteredLeads();
 
   renderSummary();
+  renderPipeline();
   renderDueBanner();
 
   const listEl = document.getElementById("leadList");
@@ -770,9 +827,10 @@ function render() {
     const due = fmtDate(l.next_followup);
     const dueColor = due ? (due.tone === "overdue" ? "var(--danger)" : due.tone === "today" ? "var(--warning)" : "var(--slate-500)") : "var(--slate-400)";
     const [pillBg, pillFg] = STAGE_COLORS[l.stage] || STAGE_COLORS.New;
+    const isOverdue = due && due.tone === "overdue";
 
     return `
-      <div class="lead-card stage-${l.stage}" data-id="${l.id}">
+      <div class="lead-card stage-${l.stage}" data-id="${l.id}" style="${isOverdue ? "background:#fef8f8;" : ""}">
         <div class="avatar">${initials(l.name || "?")}</div>
         <div class="lead-main">
           <div class="lead-top">
@@ -781,9 +839,9 @@ function render() {
           </div>
           <p class="lead-sub">${escapeHtml(l.company || "—")} · ${escapeHtml(l.type || "—")} · ${escapeHtml(l.city || "—")}</p>
           <div class="lead-meta">
-            <span>${escapeHtml(l.phone || "—")}</span>
+            <span>${escapeHtml(l.phone || "—")}${phoneIcons(l.phone)}</span>
             <span>${fmtMoney(l.value)}</span>
-            ${due ? `<span style="color:${dueColor};">${due.text}</span>` : `<span>No follow-up set</span>`}
+            ${due ? `<span style="color:${dueColor};font-weight:${isOverdue ? "700" : "400"};">${due.text}</span>` : `<span>No follow-up set</span>`}
           </div>
           ${l.notes ? `<p class="lead-notes">${escapeHtml(l.notes)}</p>` : ""}
           <p class="lead-owner">Added by ${escapeHtml(l.created_by || "—")}${l.updated_by && l.updated_by !== l.created_by ? ` · last edited by ${escapeHtml(l.updated_by)}` : ""}</p>
@@ -798,22 +856,24 @@ function render() {
   tableBodyEl.innerHTML = filtered.map(l => {
     const due = fmtDate(l.next_followup);
     const dueColor = due ? (due.tone === "overdue" ? "var(--danger)" : due.tone === "today" ? "var(--warning)" : "var(--slate-500)") : "var(--slate-400)";
-    const [pillBg, pillFg] = STAGE_COLORS[l.stage] || STAGE_COLORS.New;
+    const isOverdue = due && due.tone === "overdue";
 
     return `
-      <tr data-id="${l.id}">
+      <tr data-id="${l.id}" class="${isOverdue ? "row-overdue" : ""}">
         <td>
           <div class="table-name-cell">
             <div class="avatar">${initials(l.name || "?")}</div>
             <strong>${escapeHtml(l.name)}</strong>
+            ${phoneIcons(l.phone)}
           </div>
         </td>
         <td>${escapeHtml(l.company || "—")}</td>
         <td>${escapeHtml(l.type || "—")}</td>
         <td>${escapeHtml(l.city || "—")}</td>
-        <td><span class="stage-pill" style="background:${pillBg};color:${pillFg};">${escapeHtml(l.stage)}</span></td>
+        <td>${stageSelectHtml(l)}</td>
         <td>${fmtMoney(l.value)}</td>
-        <td>${due ? `<span style="color:${dueColor};">${due.text}</span>` : `<span style="color:var(--slate-400);">—</span>`}</td>
+        <td>${due ? `<span style="color:${dueColor};font-weight:${isOverdue ? "700" : "400"};">${due.text}</span>` : `<span style="color:var(--slate-400);">—</span>`}</td>
+        <td class="notes-cell">${l.notes ? `<span title="${escapeHtml(l.notes)}">${escapeHtml(l.notes)}</span>` : `<span style="color:var(--slate-400);">—</span>`}</td>
         <td style="color:var(--slate-500);">${escapeHtml(l.created_by || "—")}</td>
         <td class="table-actions">
           <button class="icon-btn editBtn" data-id="${l.id}" aria-label="Edit">✎</button>
@@ -824,6 +884,15 @@ function render() {
 
   document.querySelectorAll(".editBtn").forEach(b => b.onclick = () => openModal(b.dataset.id));
   document.querySelectorAll(".delBtn").forEach(b => b.onclick = () => deleteLead(b.dataset.id));
+  document.querySelectorAll(".stageSelect").forEach(s => s.onchange = () => quickChangeStage(s.dataset.id, s.value));
+}
+
+async function quickChangeStage(id, newStage) {
+  const conn = getDb();
+  if (!conn) { showToast("Not connected — check your internet connection."); return; }
+  const { error } = await conn.from("leads").update({ stage: newStage, updated_by: myName }).eq("id", id);
+  if (error) { showToast("Couldn't update stage — try again."); return; }
+  await loadLeads();
 }
 
 function renderSummary() {
@@ -833,9 +902,17 @@ function renderSummary() {
   const wonValue = won.reduce((s, l) => s + (Number(l.value) || 0), 0);
   const pipelineValue = leads.filter(l => l.stage !== "Lost").reduce((s, l) => s + (Number(l.value) || 0), 0);
 
+  const sevenDaysAgo = Date.now() - 7 * 86400000;
+  const stale = leads.filter(l => {
+    if (l.stage === "Won" || l.stage === "Lost") return false;
+    const updated = l.updated_at ? new Date(l.updated_at).getTime() : 0;
+    return updated < sevenDaysAgo;
+  }).length;
+
   const cards = [
     { label: "Total leads", value: total },
     { label: "Open", value: open },
+    { label: "Stale (7+ days)", value: stale },
     { label: "Won value", value: fmtMoney(wonValue) },
     { label: "Pipeline value", value: fmtMoney(pipelineValue) }
   ];
@@ -845,6 +922,36 @@ function renderSummary() {
       <p class="label">${c.label}</p>
       <p class="value">${c.value}</p>
     </div>`).join("");
+}
+
+function renderPipeline() {
+  const el = document.getElementById("pipelineCard");
+  if (leads.length === 0) { el.innerHTML = ""; return; }
+
+  const counts = STAGES.map(s => ({ stage: s, count: leads.filter(l => l.stage === s).length }));
+  const total = leads.length;
+
+  const bar = counts.map(c => {
+    if (c.count === 0) return "";
+    const [bg] = STAGE_COLORS[c.stage] || STAGE_COLORS.New;
+    const solid = c.stage === "Won" ? STAGE_COLORS.Won[0] : (STAGE_COLORS[c.stage] ? STAGE_COLORS[c.stage][1] : "#94a3b8");
+    const pct = (c.count / total) * 100;
+    return `<span style="width:${pct}%;background:${solid};" title="${c.stage}: ${c.count}"></span>`;
+  }).join("");
+
+  const legend = counts.map(c => {
+    const solid = c.stage === "Won" ? STAGE_COLORS.Won[0] : (STAGE_COLORS[c.stage] ? STAGE_COLORS[c.stage][1] : "#94a3b8");
+    return `<div class="pipeline-legend-item">
+      <span class="pipeline-legend-dot" style="background:${solid};"></span>
+      ${c.stage} · ${c.count}
+    </div>`;
+  }).join("");
+
+  el.innerHTML = `
+    <p class="pipeline-title">Pipeline by stage</p>
+    <div class="pipeline-bar">${bar}</div>
+    <div class="pipeline-legend">${legend}</div>
+  `;
 }
 
 function renderDueBanner() {
