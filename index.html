@@ -105,6 +105,16 @@
   .profile-panel button:hover { background: var(--slate-100); }
   .profile-panel button.danger { color: var(--danger); }
 
+  .profile-panel-divider { height: 1px; background: var(--slate-200); margin: 8px 0; }
+  .view-toggle-row { padding: 2px 8px 8px; }
+  .view-toggle-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--slate-400); margin: 0 0 8px; }
+  .view-toggle-group { display: flex; background: var(--slate-100); border-radius: 8px; padding: 3px; gap: 2px; }
+  .view-toggle-btn {
+    flex: 1; padding: 6px 0; font-size: 12px; font-weight: 500; color: var(--slate-500);
+    background: none; border: none; border-radius: 6px; cursor: pointer; text-align: center;
+  }
+  .view-toggle-btn.active { background: white; color: var(--navy); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
   .sync-pill {
     display: inline-flex; align-items: center; gap: 6px;
     font-size: 11.5px; font-weight: 600; color: var(--teal);
@@ -209,6 +219,12 @@
     .table-wrap { display: block; }
     #leadList { display: none; }
   }
+
+  /* Manual view override — takes priority over the width-based default above */
+  body.force-desktop .table-wrap { display: block !important; }
+  body.force-desktop #leadList { display: none !important; }
+  body.force-mobile .table-wrap { display: none !important; }
+  body.force-mobile #leadList { display: block !important; }
 
   .lead-card {
     background: white; border: 1px solid var(--slate-200); border-radius: 14px;
@@ -377,6 +393,16 @@
             <span>Sterix Global</span>
           </div>
         </div>
+        <div class="profile-panel-divider"></div>
+        <div class="view-toggle-row">
+          <p class="view-toggle-label">View</p>
+          <div class="view-toggle-group">
+            <button class="view-toggle-btn" id="viewAutoBtn" data-view="auto">Auto</button>
+            <button class="view-toggle-btn" id="viewDesktopBtn" data-view="desktop">Desktop</button>
+            <button class="view-toggle-btn" id="viewMobileBtn" data-view="mobile">Mobile</button>
+          </div>
+        </div>
+        <div class="profile-panel-divider"></div>
         <button id="passwordBtn">🔒 Change password</button>
         <button id="switchUserBtn" class="danger">↪ Switch profile</button>
       </div>
@@ -452,11 +478,34 @@ function getDb() {
     showToast("Couldn't connect — check your internet connection");
     return null;
   }
-  db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    global: { headers: { "x-current-user": myName || "" } }
+  });
   return db;
 }
 
+// Forces the Supabase client to be rebuilt with the current username in its
+// headers. Must be called right after a successful login (and right after
+// switching profiles) — otherwise the client created before login would be
+// cached with an empty username, and edit/delete permission checks on the
+// database side would never pass for the rest of the session.
+function refreshDbAuthHeader() {
+  db = null;
+  getDb();
+}
+
 const STAGES = ["New", "Contacted", "Quoted", "Negotiating", "Won", "Lost"];
+
+const ADMIN_USERNAME = "Hasan";
+
+// Mirrors the database's RLS rule for updates/deletes: only the lead's
+// original creator, or the admin, may edit or delete it. This is a UI
+// convenience only — the real enforcement happens in Supabase's policies,
+// so even if this check were bypassed, the database call would still fail.
+function canEditLead(lead) {
+  return myName === ADMIN_USERNAME || lead.created_by === myName;
+}
+
 const STAGE_COLORS = {
   New: ["#ebeff2", "#0B3C5D"],
   Contacted: ["#e4f6fd", "#2b6b87"],
@@ -467,6 +516,7 @@ const STAGE_COLORS = {
 };
 
 let myName = localStorage.getItem("sterix_lead_user") || "";
+let viewMode = localStorage.getItem("sterix_lead_view") || "auto";
 let leads = [];
 let editingId = null;
 let realtimeChannel = null;
@@ -687,6 +737,7 @@ async function attemptSignup() {
 function chooseName(name) {
   myName = name;
   localStorage.setItem("sterix_lead_user", name);
+  refreshDbAuthHeader();
   document.getElementById("namePicker").style.display = "none";
   showMainApp();
 }
@@ -700,11 +751,34 @@ function showMainApp() {
   document.getElementById("switchUserBtn").onclick = switchUser;
   document.getElementById("passwordBtn").onclick = () => { closeProfilePanel(); openPasswordModal(); };
   document.getElementById("profileTrigger").onclick = toggleProfilePanel;
+  document.querySelectorAll(".view-toggle-btn").forEach(btn => {
+    btn.onclick = () => setViewMode(btn.dataset.view);
+  });
+  initViewMode();
   document.addEventListener("click", (e) => {
     const wrap = document.querySelector(".profile-wrap");
     if (wrap && !wrap.contains(e.target)) closeProfilePanel();
   });
   connectAndLoad();
+}
+
+function initViewMode() {
+  applyViewMode(viewMode);
+}
+
+function setViewMode(mode) {
+  viewMode = mode;
+  localStorage.setItem("sterix_lead_view", mode);
+  applyViewMode(mode);
+}
+
+function applyViewMode(mode) {
+  document.body.classList.remove("force-desktop", "force-mobile");
+  if (mode === "desktop") document.body.classList.add("force-desktop");
+  if (mode === "mobile") document.body.classList.add("force-mobile");
+  document.querySelectorAll(".view-toggle-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.view === mode);
+  });
 }
 
 function toggleProfilePanel() {
@@ -801,7 +875,10 @@ function phoneIcons(phone) {
 function stageSelectHtml(lead) {
   const [pillBg, pillFg] = STAGE_COLORS[lead.stage] || STAGE_COLORS.New;
   const options = STAGES.map(s => `<option value="${s}" ${lead.stage === s ? "selected" : ""}>${s}</option>`).join("");
-  return `<select class="stage-select stageSelect" data-id="${lead.id}" style="background-color:${pillBg};color:${pillFg};">${options}</select>`;
+  const editable = canEditLead(lead);
+  const disabledAttr = editable ? "" : "disabled";
+  const titleAttr = editable ? "" : `title="Only ${escapeHtml(lead.created_by || "the creator")} or an admin can change this"`;
+  return `<select class="stage-select stageSelect" data-id="${lead.id}" ${disabledAttr} ${titleAttr} style="background-color:${pillBg};color:${pillFg};${editable ? "" : "opacity:0.6;cursor:not-allowed;"}">${options}</select>`;
 }
 
 function render() {
@@ -847,8 +924,10 @@ function render() {
           <p class="lead-owner">Added by ${escapeHtml(l.created_by || "—")}${l.updated_by && l.updated_by !== l.created_by ? ` · last edited by ${escapeHtml(l.updated_by)}` : ""}</p>
         </div>
         <div class="lead-actions">
+          ${canEditLead(l) ? `
           <button class="icon-btn editBtn" data-id="${l.id}" aria-label="Edit">✎</button>
           <button class="icon-btn delBtn" data-id="${l.id}" aria-label="Delete">🗑</button>
+          ` : `<span title="Only ${escapeHtml(l.created_by || "the creator")} or an admin can edit this" style="font-size:11px;color:var(--slate-400);">🔒</span>`}
         </div>
       </div>`;
   }).join("");
@@ -876,8 +955,10 @@ function render() {
         <td class="notes-cell">${l.notes ? `<span title="${escapeHtml(l.notes)}">${escapeHtml(l.notes)}</span>` : `<span style="color:var(--slate-400);">—</span>`}</td>
         <td style="color:var(--slate-500);">${escapeHtml(l.created_by || "—")}</td>
         <td class="table-actions">
+          ${canEditLead(l) ? `
           <button class="icon-btn editBtn" data-id="${l.id}" aria-label="Edit">✎</button>
           <button class="icon-btn delBtn" data-id="${l.id}" aria-label="Delete">🗑</button>
+          ` : `<span title="Only ${escapeHtml(l.created_by || "the creator")} or an admin can edit this" style="font-size:11px;color:var(--slate-400);">🔒</span>`}
         </td>
       </tr>`;
   }).join("");
@@ -890,8 +971,9 @@ function render() {
 async function quickChangeStage(id, newStage) {
   const conn = getDb();
   if (!conn) { showToast("Not connected — check your internet connection."); return; }
-  const { error } = await conn.from("leads").update({ stage: newStage, updated_by: myName }).eq("id", id);
+  const { data, error } = await conn.from("leads").update({ stage: newStage, updated_by: myName }).eq("id", id).select();
   if (error) { showToast("Couldn't update stage — try again."); return; }
+  if (!data || data.length === 0) { showToast("Only the lead's creator or an admin can change its stage."); await loadLeads(); return; }
   await loadLeads();
 }
 
@@ -1177,10 +1259,15 @@ async function saveLead() {
   saveBtn.disabled = true;
 
   if (editingId) {
-    const { error } = await conn.from("leads").update(data).eq("id", editingId);
+    const { data: updated, error } = await conn.from("leads").update(data).eq("id", editingId).select();
     if (error) {
       saveBtn.disabled = false; saveBtn.textContent = "Save";
       showModalError(error.message || "Couldn't save this lead.");
+      return;
+    }
+    if (!updated || updated.length === 0) {
+      saveBtn.disabled = false; saveBtn.textContent = "Save";
+      showModalError("Only the lead's creator or an admin can edit this lead.");
       return;
     }
   } else {
@@ -1214,8 +1301,9 @@ async function deleteLead(id) {
   if (!confirm(`Delete the lead for ${lead ? lead.name : "this contact"}? This can't be undone.`)) return;
   const conn = getDb();
   if (!conn) return;
-  const { error } = await conn.from("leads").delete().eq("id", id);
+  const { data, error } = await conn.from("leads").delete().eq("id", id).select();
   if (error) { showToast("Couldn't delete — try again"); return; }
+  if (!data || data.length === 0) { showToast("Only the lead's creator or an admin can delete this lead."); await loadLeads(); return; }
   await loadLeads();
 }
 
